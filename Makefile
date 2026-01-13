@@ -1,4 +1,4 @@
-.PHONY: help clean build run lint test fmt vet update-deps
+.PHONY: help autoupdate-precommit pre-commit clean build run lint test fmt vet update-deps
 
 # Variables
 BINARY_NAME=eval-hub-backend-svc
@@ -12,6 +12,16 @@ PORT?=8080
 help: ## Display this help message
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+PRE_COMMIT ?= .git/hooks/pre-commit
+
+${PRE_COMMIT}: .pre-commit-config.yaml
+	pre-commit install
+
+autoupdate-precommit:
+	pre-commit autoupdate
+
+pre-commit: autoupdate-precommit ${PRE_COMMIT}
 
 clean: ## Remove build artifacts
 	@echo "Cleaning..."
