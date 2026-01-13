@@ -12,7 +12,6 @@ import (
   "eval-hub-backend-svc/internal/metrics"
 
   "github.com/prometheus/client_golang/prometheus/promhttp"
-  "go.uber.org/zap"
 )
 
 type Server struct {
@@ -35,12 +34,8 @@ func (s *Server) setupRoutes() http.Handler {
   router := http.NewServeMux()
   h := handlers.New()
 
-  // Create a production JSON logger (outputs JSON to stdout)
-  logger, err := zap.NewProduction()
-  if err != nil {
-    // Fallback to development logger if production logger fails
-    logger, _ = zap.NewDevelopment()
-  }
+  // Create logger once for all requests
+  logger := NewLogger()
 
   // Health and status endpoints
   router.HandleFunc("/api/v1/health", h.HandleHealth)

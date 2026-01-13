@@ -3,6 +3,7 @@ module eval-hub-backend-svc
 go 1.21
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/prometheus/client_golang v1.19.0
 	go.uber.org/zap v1.27.0
 )
