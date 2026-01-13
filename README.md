@@ -137,13 +137,22 @@ eval-hub-backend-svc/
 │   └── eval_hub/          # Main application entry point
 │       └── main.go
 ├── internal/               # Private application code
+│   ├── constants/         # Shared constants
+│   │   └── log_fields.go  # Log field name constants
 │   ├── handlers/          # HTTP handlers
-│   │   └── handlers.go
+│   │   ├── handlers.go     # Basic handlers (health, status)
+│   │   ├── evaluations.go  # Evaluation-related handlers
+│   │   ├── openapi.go      # OpenAPI documentation handlers
+│   │   ├── handlers_test.go
+│   │   └── openapi_test.go
 │   ├── metrics/           # Prometheus metrics
 │   │   ├── metrics.go
-│   │   └── middleware.go
+│   │   ├── middleware.go
+│   │   └── middleware_test.go
 │   └── server/            # Server setup and configuration
-│       └── server.go
+│       ├── server.go       # Server implementation
+│       ├── logger.go        # Logger creation and configuration
+│       └── server_test.go
 ├── api/                 # API specifications
 │   └── openapi.yaml     # OpenAPI 3.1.0 specification
 ├── tests/               # Test files
@@ -153,6 +162,7 @@ eval-hub-backend-svc/
 │       ├── metrics.feature
 │       ├── suite_test.go
 │       └── step_definitions_test.go
+├── Makefile
 ├── go.mod
 └── README.md
 ```
@@ -165,6 +175,7 @@ The project includes comprehensive test coverage:
 
 Unit tests are located alongside the code in `*_test.go` files:
 - `internal/handlers/handlers_test.go` - Handler unit tests
+- `internal/handlers/openapi_test.go` - OpenAPI handler tests
 - `internal/metrics/middleware_test.go` - Metrics middleware tests
 - `internal/server/server_test.go` - Server unit tests
 
@@ -188,3 +199,35 @@ Run all tests:
 ```bash
 make test-all
 ```
+
+## Features
+
+### Structured Logging
+
+The service uses [zap](https://github.com/uber-go/zap) for high-performance structured JSON logging. Each request automatically includes:
+
+- **Request ID**: Extracted from `X-Global-Transaction-Id` header or auto-generated UUID
+- **HTTP Method**: Request method (GET, POST, etc.)
+- **URI**: Request path
+- **User Agent**: Client user agent string
+- **Remote Address**: Client IP address
+- **Remote User**: Authenticated user (if available)
+- **Referer**: HTTP referer header (if present)
+
+All log entries are automatically enriched with these fields for better traceability and debugging.
+
+### Execution Context
+
+All evaluation-related handlers receive an `ExecutionContext` that includes:
+- Logger with request-specific fields
+- Evaluation configuration (timeouts, retries, etc.)
+- Model and benchmark specifications
+- Metadata and experiment information
+
+### Dependencies
+
+Key dependencies:
+- **zap** (`go.uber.org/zap`) - Structured logging
+- **Prometheus** (`github.com/prometheus/client_golang`) - Metrics collection
+- **godog** (`github.com/cucumber/godog`) - BDD testing framework
+- **uuid** (`github.com/google/uuid`) - UUID generation
