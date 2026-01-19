@@ -9,6 +9,8 @@ PORT?=8080
 # Default target
 .DEFAULT_GOAL := help
 
+UNAME := $(shell uname)
+
 help: ## Display this help message
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -84,3 +86,46 @@ update-deps: ## Update all dependencies to latest versions
 	@go get -u ./...
 	@go mod tidy
 	@echo "Dependencies updated"
+
+POSTGRES_VERSION ?= 18
+
+ifeq (${UNAME}, Darwin)
+install-postgres:
+	brew install postgresql@${POSTGRES_VERSION}
+else ifeq ($(UNAME), Linux)
+install-postgres:
+	sudo apt-get install postgresql
+else
+install-postgres:
+	echo "Unsupported platform: ${UNAME}"
+	exit 1
+endif
+
+ifeq (${UNAME}, Darwin)
+start-postgres:
+	brew services start postgresql@${POSTGRES_VERSION}
+else ifeq ($(UNAME), Linux)
+start-postgres:
+	sudo systemctl start postgresql
+endif
+
+ifeq (${UNAME}, Darwin)
+stop-postgres:
+	brew services stop postgresql@${POSTGRES_VERSION}
+else ifeq ($(UNAME), Linux)
+stop-postgres:
+	sudo systemctl stop postgresql
+endif
+
+create-database:
+	sudo -u postgres createdb eval_hub
+
+create-user:
+	sudo -u postgres createuser -s -d -r eval_hub
+
+grant-permissions:
+	sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE eval_hub TO eval_hub;"
+
+.PHONY: cls
+cls:
+	printf "\33c\e[3J"

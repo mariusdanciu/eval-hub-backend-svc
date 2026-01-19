@@ -4,12 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
-	"eval-hub-backend-svc/internal/constants"
-
-	"github.com/google/uuid"
-	"go.uber.org/zap"
+	"github.ibm.com/julpayne/eval-hub-backend-svc/internal/execution_context"
 )
 
 // BackendSpec represents the backend specification
@@ -25,98 +21,8 @@ type BenchmarkSpec struct {
 	Config      map[string]interface{} `json:"config,omitempty"`
 }
 
-// ExecutionContext contains execution context for evaluation operations
-type ExecutionContext struct {
-	EvaluationID   string                 `json:"evaluation_id"`
-	ModelURL       string                 `json:"model_url"`
-	ModelName      string                 `json:"model_name"`
-	BackendSpec    BackendSpec            `json:"backend_spec"`
-	BenchmarkSpec  BenchmarkSpec          `json:"benchmark_spec"`
-	TimeoutMinutes int                    `json:"timeout_minutes"`
-	RetryAttempts  int                    `json:"retry_attempts"`
-	StartedAt      *time.Time             `json:"started_at,omitempty"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
-	MLflowClient   interface{}            `json:"-"` // Not serialized
-	ExperimentName *string                `json:"experiment_name,omitempty"`
-	Logger         *zap.Logger            `json:"-"` // Not serialized
-}
-
-// enhanceLoggerWithRequest enhances a logger with request-specific fields
-func enhanceLoggerWithRequest(logger *zap.Logger, r *http.Request) *zap.Logger {
-	// Extract RequestID from X-Global-Transaction-Id header, or generate a UUID if not present
-	requestID := r.Header.Get("X-Global-Transaction-Id")
-	if requestID == "" {
-		requestID = uuid.New().String()
-	}
-
-	// Add request_id to logger using With
-	enhancedLogger := logger.With(zap.String(constants.LOG_REQUEST_ID, requestID))
-
-	// Extract and add HTTP method and URI if they exist
-	method := r.Method
-	if method != "" {
-		enhancedLogger = enhancedLogger.With(zap.String(constants.LOG_METHOD, method))
-	}
-
-	uri := ""
-	if r.URL != nil {
-		uri = r.URL.Path
-	}
-	if uri == "" {
-		uri = r.RequestURI
-	}
-	if uri != "" {
-		enhancedLogger = enhancedLogger.With(zap.String(constants.LOG_URI, uri))
-	}
-
-	// Extract and add HTTP request fields to logger if they exist
-	userAgent := r.Header.Get("User-Agent")
-	if userAgent != "" {
-		enhancedLogger = enhancedLogger.With(zap.String(constants.LOG_USER_AGENT, userAgent))
-	}
-
-	remoteAddr := r.RemoteAddr
-	if remoteAddr != "" {
-		enhancedLogger = enhancedLogger.With(zap.String(constants.LOG_REMOTE_ADR, remoteAddr))
-	}
-
-	// Extract remote_user from URL user info or header
-	remoteUser := ""
-	if r.URL != nil && r.URL.User != nil {
-		remoteUser = r.URL.User.Username()
-	}
-	if remoteUser == "" {
-		remoteUser = r.Header.Get("Remote-User")
-	}
-	if remoteUser != "" {
-		enhancedLogger = enhancedLogger.With(zap.String(constants.LOG_USER, remoteUser))
-	}
-
-	referer := r.Header.Get("Referer")
-	if referer != "" {
-		enhancedLogger = enhancedLogger.With(zap.String(constants.LOG_REFERER, referer))
-	}
-
-	return enhancedLogger
-}
-
-// NewExecutionContext creates a new ExecutionContext with default values
-func NewExecutionContext(r *http.Request, logger *zap.Logger) ExecutionContext {
-	// Enhance logger with request-specific fields
-	enhancedLogger := enhanceLoggerWithRequest(logger, r)
-
-	return ExecutionContext{
-		TimeoutMinutes: 60,
-		RetryAttempts:  3,
-		BackendSpec:    BackendSpec{},
-		BenchmarkSpec:  BenchmarkSpec{},
-		Metadata:       make(map[string]interface{}),
-		Logger:         enhancedLogger,
-	}
-}
-
 // HandleCreateEvaluation handles POST /api/v1/evaluations/jobs
-func (h *Handlers) HandleCreateEvaluation(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleCreateEvaluation(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -130,7 +36,7 @@ func (h *Handlers) HandleCreateEvaluation(ctx ExecutionContext, w http.ResponseW
 }
 
 // HandleListEvaluations handles GET /api/v1/evaluations/jobs
-func (h *Handlers) HandleListEvaluations(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleListEvaluations(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -147,7 +53,7 @@ func (h *Handlers) HandleListEvaluations(ctx ExecutionContext, w http.ResponseWr
 }
 
 // HandleGetEvaluation handles GET /api/v1/evaluations/jobs/{id}
-func (h *Handlers) HandleGetEvaluation(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleGetEvaluation(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -165,7 +71,7 @@ func (h *Handlers) HandleGetEvaluation(ctx ExecutionContext, w http.ResponseWrit
 }
 
 // HandleCancelEvaluation handles DELETE /api/v1/evaluations/jobs/{id}
-func (h *Handlers) HandleCancelEvaluation(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleCancelEvaluation(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -179,7 +85,7 @@ func (h *Handlers) HandleCancelEvaluation(ctx ExecutionContext, w http.ResponseW
 }
 
 // HandleGetEvaluationSummary handles GET /api/v1/evaluations/jobs/{id}/summary
-func (h *Handlers) HandleGetEvaluationSummary(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleGetEvaluationSummary(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -192,7 +98,7 @@ func (h *Handlers) HandleGetEvaluationSummary(ctx ExecutionContext, w http.Respo
 }
 
 // HandleListBenchmarks handles GET /api/v1/evaluations/benchmarks
-func (h *Handlers) HandleListBenchmarks(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleListBenchmarks(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -207,7 +113,7 @@ func (h *Handlers) HandleListBenchmarks(ctx ExecutionContext, w http.ResponseWri
 }
 
 // HandleListCollections handles GET /api/v1/evaluations/collections
-func (h *Handlers) HandleListCollections(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleListCollections(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -221,7 +127,7 @@ func (h *Handlers) HandleListCollections(ctx ExecutionContext, w http.ResponseWr
 }
 
 // HandleCreateCollection handles POST /api/v1/evaluations/collections
-func (h *Handlers) HandleCreateCollection(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleCreateCollection(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -235,7 +141,7 @@ func (h *Handlers) HandleCreateCollection(ctx ExecutionContext, w http.ResponseW
 }
 
 // HandleGetCollection handles GET /api/v1/evaluations/collections/{collection_id}
-func (h *Handlers) HandleGetCollection(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleGetCollection(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -253,7 +159,7 @@ func (h *Handlers) HandleGetCollection(ctx ExecutionContext, w http.ResponseWrit
 }
 
 // HandleUpdateCollection handles PUT /api/v1/evaluations/collections/{collection_id}
-func (h *Handlers) HandleUpdateCollection(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleUpdateCollection(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -266,7 +172,7 @@ func (h *Handlers) HandleUpdateCollection(ctx ExecutionContext, w http.ResponseW
 }
 
 // HandlePatchCollection handles PATCH /api/v1/evaluations/collections/{collection_id}
-func (h *Handlers) HandlePatchCollection(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandlePatchCollection(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -279,7 +185,7 @@ func (h *Handlers) HandlePatchCollection(ctx ExecutionContext, w http.ResponseWr
 }
 
 // HandleDeleteCollection handles DELETE /api/v1/evaluations/collections/{collection_id}
-func (h *Handlers) HandleDeleteCollection(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleDeleteCollection(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -293,7 +199,7 @@ func (h *Handlers) HandleDeleteCollection(ctx ExecutionContext, w http.ResponseW
 }
 
 // HandleListProviders handles GET /api/v1/evaluations/providers
-func (h *Handlers) HandleListProviders(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleListProviders(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -308,7 +214,7 @@ func (h *Handlers) HandleListProviders(ctx ExecutionContext, w http.ResponseWrit
 }
 
 // HandleGetProvider handles GET /api/v1/evaluations/providers/{provider_id}
-func (h *Handlers) HandleGetProvider(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleGetProvider(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -326,7 +232,7 @@ func (h *Handlers) HandleGetProvider(ctx ExecutionContext, w http.ResponseWriter
 }
 
 // HandleGetSystemMetrics handles GET /api/v1/metrics/system
-func (h *Handlers) HandleGetSystemMetrics(ctx ExecutionContext, w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleGetSystemMetrics(ctx *execution_context.ExecutionContext, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
