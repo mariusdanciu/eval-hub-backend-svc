@@ -1,8 +1,10 @@
-package api
+package abstractions
+
+import "github.ibm.com/julpayne/eval-hub-backend-svc/pkg/api"
 
 // Runtime interface defines the methods for running evaluation jobs. Concrete implemementation
 // hold the specific aspects of various runtimes (i.e. K8s, local, etc.). No other places in the code should
 // be pointing directly to K8s or other runtime specific details.
 type Runtime interface {
-	RunEvaluationJob(evaluation *EvaluationJobResource, storage *Storage) error
+	RunEvaluationJob(evaluation *api.EvaluationJobResource, storage *Storage) error
 }
