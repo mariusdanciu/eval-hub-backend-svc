@@ -2,6 +2,17 @@ package api
 
 import "time"
 
+// State represents the evaluation state enum
+type State string
+
+const (
+	StatePending   State = "pending"
+	StateRunning   State = "running"
+	StateCompleted State = "completed"
+	StateFailed    State = "failed"
+	StateCancelled State = "cancelled"
+)
+
 // ModelRef represents model specification for evaluation requests
 type ModelRef struct {
 	URL  string `json:"url"`

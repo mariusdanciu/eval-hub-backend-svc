@@ -12,17 +12,6 @@ import "time"
 // - ...Error - represents an error response
 // ------------------------------------------------------------------------------------------------
 
-// State represents the evaluation state enum
-type State string
-
-const (
-	StatePending   State = "pending"
-	StateRunning   State = "running"
-	StateCompleted State = "completed"
-	StateFailed    State = "failed"
-	StateCancelled State = "cancelled"
-)
-
 // PatchOp represents the patch operation enum
 type PatchOp string
 
