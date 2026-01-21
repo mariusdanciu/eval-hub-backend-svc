@@ -47,10 +47,14 @@ type BenchmarkStatus struct {
 	Logs        *BenchmarkStatusLogs `json:"logs,omitempty"`
 }
 
+type EvaluationJobState struct {
+	State   State  `json:"state"`
+	Message string `json:"message"`
+}
+
 // EvaluationStatus represents evaluation status
-type EvaluationStatus struct {
-	State      State             `json:"state"`
-	Message    string            `json:"message"`
+type EvaluationJobStatus struct {
+	EvaluationJobState
 	Benchmarks []BenchmarkStatus `json:"benchmarks,omitempty"`
 }
 
@@ -90,7 +94,7 @@ type EvaluationJobConfig struct {
 type EvaluationJobResource struct {
 	Resource
 	EvaluationJobConfig
-	Status  EvaluationStatus      `json:"status"`
+	Status  EvaluationJobStatus   `json:"status"`
 	Results *EvaluationJobResults `json:"results,omitempty"`
 }
 
